@@ -1,147 +1,149 @@
-import React from "react";
-import {
-  Link,
-  Route
-} from "react-router-dom";
-import * as BooksAPI from "./BooksAPI";
-import Shelf from "./Shelf";
-import Search from "./Search";
-import "./App.css";
-
+import React from 'react'
+import * as BooksAPI from './BooksAPI'
+import './App.css'
+import Loading from './utils/Loading'
+import Shelves from './components/Shelves'
+import { Route, Redirect, Switch, Link } from 'react-router-dom'
+import SearchBooks from './components/SearchBooks'
+import MainPageTitle from './components/MainPageTitle'
+import NotFound from './components/NotFound'
+import BookDetail from './components/BookDetail'
+import NewSearch from './components/NewSearch'
 
 class BooksApp extends React.Component {
-  MAX_RESULTS = 30;
 
-  state = {
-    books: [],
-    searchBooks: []
-  };
+	shelfNames = ['currentlyReading', 'wantToRead', 'read']
 
-  componentDidMount() {
-    this.fetchBooks();
-  }
+	state = {
+		books: [],
+		lastQuery: (localStorage.lastQuery) ? localStorage.lastQuery : ''
+	}
 
-  fetchBooks() {
-    BooksAPI.getAll().then((books) => {
-      this.setState({
-        books
-      });
-    });
-  }
+	constructor(props) {
+		super(props)
+		this.updateLastQuery = this.updateLastQuery.bind(this)
+	}
 
-  getShelfBooks(shelfName) {
-    return this.state.books.filter((b) => b.shelf === shelfName)
-  }
+	updateLastQuery = (lastQuery) => {
+		this.setState({lastQuery: lastQuery})
+		localStorage.lastQuery = lastQuery
+	}
 
-  changeShelf = (book, newShelf) => {
-    BooksAPI.update(book, newShelf).then(() => {
-      // Update the local copy of the book
-      book.shelf = newShelf;
+	updateBooks() {
+		this.showLoading()
+		BooksAPI.getAll().then((books) => {
+			this.setState({books: books, isLoading: false})
+		})
+	}
 
-      // Filter out the book and append it to the end of the list
-      // so it appears at the end of whatever shelf it was added to.
-      this.setState(state => ({
-        books: state.books.filter(b => b.id !== book.id).concat([book])
-      }));
-    });
-  };
+	componentDidMount() {
+		this.updateBooks()
+	}
 
-  updateQuery = (query) => {
-    if (query) {
-      BooksAPI.search(query, this.MAX_RESULTS).then((books) => {
-        // if the BookAPI.search worked properly, this would be unnecessary
-        if (books.length) {
-          books.forEach((book, index) => {
-            let myBook = this.state.books.find((b) => b.id === book.id);
-            book.shelf = myBook ? myBook.shelf : 'none';
-            books[index] = book;
-          });
+	changeSelectedBookshelf = (bookChanged) => {
+		this.showLoading()
+		BooksAPI.update(bookChanged.book, bookChanged.shelf).then(() => {
+			let myBookIds = this.state.books.map( (book) => (book.id) )
+			if (myBookIds.includes(bookChanged.book.id)) {
+				let books = this.state.books.map(bookStored => {
+					if (bookChanged.book.id === bookStored.id) {
+						bookStored.shelf = bookChanged.shelf
+					}
+					return bookStored
+				})
+				this.setState({books});
+			} else {
+				let newBook = bookChanged.book
+				newBook.shelf = bookChanged.shelf
+				this.setState({books: this.state.books.concat(newBook)});
+			}
+			this.hideLoading()
+		})
+	}
 
-          this.setState({
-            searchBooks: books
-          });
-        }
+	render() {
 
-      });
-    } else {
-      this.setState({});
-    }
-  };
+		const { updateLastQuery, changeSelectedBookshelf, shelfNames } = this
+		const { books, lastQuery, isLoading } = this.state
 
-  render() {
-    return ( <
-      div className = "app" >
-      <
-      Route exact path = "/"
-      render = {
-        () => ( <
-          div className = "list-books" >
-          <
-          div className = "list-books-title" >
-          <
-          h1 > MyReads < /h1> < /
-          div > <
-          div className = "list-books-content" >
-          <
-          div >
-          <
-          Shelf title = "Currently Reading"
-          books = {
-            this.getShelfBooks("currentlyReading")
-          }
-          changeShelf = {
-            this.changeShelf
-          }
-          /> <
-          Shelf title = "Want to Read"
-          books = {
-            this.getShelfBooks("wantToRead")
-          }
-          changeShelf = {
-            this.changeShelf
-          }
-          /> <
-          Shelf title = "Read"
-          books = {
-            this.getShelfBooks("read")
-          }
-          changeShelf = {
-            this.changeShelf
-          }
-          /> < /
-          div > <
-          /div> <
-          div className = "open-search" >
-          <
-          Link to = "/search" > Add a book < /Link> < /
-          div > <
-          /div>
-        )
-      }
-      />
+		return (
+			<div className="app">
 
-      <
-      Route path = "/search"
-      render = {
-        ({
-          history
-        }) => ( <
-          Search books = {
-            this.state.searchBooks
-          }
-          updateQuery = {
-            this.updateQuery
-          }
-          changeShelf = {
-            this.changeShelf
-          }
-          />
-        )
-      }
-      /> < /
-      div >
-    )
-  }
+				{isLoading && ( <Loading/> )}
+
+				<Switch>
+
+					<Route exact path='/search' render={() => (
+						<SearchBooks
+							updateLastQuery={updateLastQuery.bind(this)}
+							changeSelectedBookshelf={changeSelectedBookshelf}
+							shelfNames={shelfNames}
+							lastQuery={lastQuery}
+							books={books} />
+					)}/>
+
+					<Route path='/search/:query' render={({ match }) => (
+						<SearchBooks
+							updateLastQuery={updateLastQuery.bind(this)}
+							changeSelectedBookshelf={changeSelectedBookshelf}
+							shelfNames={shelfNames}
+							books={books}
+							lastQuery={lastQuery}
+							urlQuery={match.params.query} />
+					)}/>
+
+					<Route exact path='/book/:bookId' render={({match}) => (
+						<BookDetail bookId={match.params.bookId}
+							books={books}
+							shelfNames={shelfNames}
+							changeSelectedBookshelf={changeSelectedBookshelf} />
+					)}/>
+
+					<Route exact path='/' render={() => (
+
+						<div className="list-books">
+
+							<MainPageTitle />
+
+							<Shelves
+								changeSelectedBookshelf={changeSelectedBookshelf}
+								shelfNames={shelfNames}
+								books={books} />
+
+							<div className="open-search">
+								<Link to='/newSearch'>
+									Add a book
+								</Link>
+							</div>
+
+						</div>
+
+					)}/>
+
+					<Route exact path='/newSearch' render={() => (
+						<NewSearch updateLastQuery={updateLastQuery.bind(this)} />
+					)} />
+
+					<Route path="*" component={NotFound} />
+
+					// unused, but it's another option: any other URL may redirect to the home screen and that's OK
+					<Redirect from='*' to='/'/>
+
+				</Switch>
+
+			</div>
+		)
+
+	}
+
+	showLoading() {
+		this.setState({ isLoading: true })
+	}
+
+	hideLoading() {
+		this.setState({ isLoading: false })
+	}
+
 }
 
 export default BooksApp

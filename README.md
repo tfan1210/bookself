@@ -14,5 +14,3 @@ A React.js based bookself app that allows you to select books and place them on 
 
 4. Run the application with
   npm start
-
-  
