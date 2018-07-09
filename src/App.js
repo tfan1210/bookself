@@ -64,9 +64,7 @@ class BooksApp extends React.Component {
 
       });
     } else {
-      this.setState({
-        searchBooks: []
-      });
+      this.setState({});
     }
   };
 
@@ -81,8 +79,8 @@ class BooksApp extends React.Component {
           <
           div className = "list-books-title" >
           <
-          h1 > MyReads < /h1> <
-          /div> <
+          h1 > MyReads < /h1> < /
+          div > <
           div className = "list-books-content" >
           <
           div >
@@ -110,13 +108,13 @@ class BooksApp extends React.Component {
           changeShelf = {
             this.changeShelf
           }
-          /> <
-          /div> <
+          /> < /
+          div > <
           /div> <
           div className = "open-search" >
           <
-          Link to = "/search" > Add a book < /Link> <
-          /div> <
+          Link to = "/search" > Add a book < /Link> < /
+          div > <
           /div>
         )
       }
@@ -140,8 +138,8 @@ class BooksApp extends React.Component {
           />
         )
       }
-      /> <
-      /div>
+      /> < /
+      div >
     )
   }
 }
